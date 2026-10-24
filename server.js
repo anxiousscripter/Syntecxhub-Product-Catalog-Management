@@ -69,14 +69,56 @@ async function startServer() {
 
 		app.get('/api/products', async (req, res) => {
 			try {
-				const products = db.collection('products');
+				const { search, category } = req.query;
+				const filter = {};
 
-				const results = await products.find({}).toArray();
+				if (search !== undefined) {
+					if (
+						typeof search !== 'string' ||
+						search.trim() === '' ||
+						search.length > 100
+					) {
+						return res.status(400).json({
+							error: 'Search must be a non-empty string of at most 100 characters',
+						});
+					}
+
+					const escapedSearch = search
+						.trim()
+						.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+					filter.name = {
+						$regex: escapedSearch,
+						$options: 'i',
+					};
+				}
+
+				if (category !== undefined) {
+					if (
+						typeof category !== 'string' ||
+						category.trim() === '' ||
+						category.length > 100
+					) {
+						return res.status(400).json({
+							error: 'Category must be a non-empty string of at most 100 characters',
+						});
+					}
+
+					filter.category = {
+						$regex: `^${category.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`,
+						$options: 'i',
+					};
+				}
+
+				const products = db.collection('products');
+				const results = await products.find(filter).toArray();
 
 				res.json(results);
 			} catch (error) {
 				console.error('Failed to retrieve products:', error.message);
-				res.status(500).json({ error: 'Failed to retrieve products' });
+				res.status(500).json({
+					error: 'Failed to retrieve products',
+				});
 			}
 		});
 
