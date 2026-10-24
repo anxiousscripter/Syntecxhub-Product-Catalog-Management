@@ -70,6 +70,27 @@ async function startServer() {
 		app.get('/api/products', async (req, res) => {
 			try {
 				const { search, category } = req.query;
+
+				const page =
+					req.query.page === undefined ? 1 : Number(req.query.page);
+
+				const limit =
+					req.query.limit === undefined
+						? 10
+						: Number(req.query.limit);
+
+				if (
+					!Number.isInteger(page) ||
+					page < 1 ||
+					!Number.isInteger(limit) ||
+					limit < 1 ||
+					limit > 100
+				) {
+					return res.status(400).json({
+						error: 'Page must be a positive integer, and limit must be between 1 and 100',
+					});
+				}
+
 				const filter = {};
 
 				if (search !== undefined) {
@@ -104,16 +125,40 @@ async function startServer() {
 						});
 					}
 
+					const escapedCategory = category
+						.trim()
+						.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 					filter.category = {
-						$regex: `^${category.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`,
+						$regex: `^${escapedCategory}$`,
 						$options: 'i',
 					};
 				}
 
 				const products = db.collection('products');
-				const results = await products.find(filter).toArray();
 
-				res.json(results);
+				const skip = (page - 1) * limit;
+
+				const [results, total] = await Promise.all([
+					products
+						.find(filter)
+						.sort({ _id: 1 })
+						.skip(skip)
+						.limit(limit)
+						.toArray(),
+
+					products.countDocuments(filter),
+				]);
+
+				res.json({
+					data: results,
+					pagination: {
+						page,
+						limit,
+						total,
+						totalPages: Math.ceil(total / limit),
+					},
+				});
 			} catch (error) {
 				console.error('Failed to retrieve products:', error.message);
 				res.status(500).json({
