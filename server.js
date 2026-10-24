@@ -167,6 +167,41 @@ async function startServer() {
 			}
 		});
 
+		app.get('/api/products/stats/categories', async (req, res) => {
+			try {
+				const products = db.collection('products');
+
+				const pipeline = [
+					{
+						$group: {
+							_id: '$category',
+							productCount: { $sum: 1 },
+							averagePrice: { $avg: '$price' },
+							totalStock: { $sum: '$stock' },
+						},
+					},
+					{
+						$sort: {
+							productCount: -1,
+							_id: 1,
+						},
+					},
+				];
+
+				const results = await products.aggregate(pipeline).toArray();
+
+				res.json(results);
+			} catch (error) {
+				console.error(
+					'Failed to retrieve category statistics:',
+					error.message,
+				);
+				res.status(500).json({
+					error: 'Failed to retrieve category statistics',
+				});
+			}
+		});
+
 		app.get('/api/products/:id', async (req, res) => {
 			try {
 				const { id } = req.params;
