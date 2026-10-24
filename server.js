@@ -215,45 +215,35 @@ async function startServer() {
 			}
 		});
 
-		app.get('/api/setup-product', async (req, res) => {
+		app.delete('/api/products/:id', async (req, res) => {
 			try {
+				const { id } = req.params;
+
+				if (!ObjectId.isValid(id)) {
+					return res.status(400).json({
+						error: 'Invalid product ID',
+					});
+				}
+
 				const products = db.collection('products');
 
-				const result = await products.insertOne({
-					name: 'Wireless Headphones',
-					description: 'Bluetooth headphones',
-					price: 450,
-					category: 'Electronics',
-					stock: 12,
+				const result = await products.deleteOne({
+					_id: new ObjectId(id),
 				});
 
-				res.status(201).json({
-					message: 'Sample product created',
-					productId: result.insertedId,
+				if (result.deletedCount === 0) {
+					return res.status(404).json({
+						error: 'Product not found',
+					});
+				}
+
+				res.json({
+					message: 'Product deleted successfully',
 				});
 			} catch (error) {
-				console.error(
-					'Failed to create sample product:',
-					error.message,
-				);
+				console.error('Failed to delete product:', error.message);
 				res.status(500).json({
-					error: 'Failed to create sample product',
-				});
-			}
-		});
-
-		app.get('/api/test-data', async (req, res) => {
-			try {
-				const sampleDb = client.db('sample_mflix');
-				const movies = sampleDb.collection('movies');
-
-				const results = await movies.find({}).limit(5).toArray();
-
-				res.json(results);
-			} catch (error) {
-				console.error('Failed to retrieve sample data:', error.message);
-				res.status(500).json({
-					error: 'Failed to retrieve sample data',
+					error: 'Failed to delete product',
 				});
 			}
 		});
