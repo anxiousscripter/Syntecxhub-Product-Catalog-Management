@@ -15,13 +15,31 @@ app.get('/', (req, res) => {
 	res.send('Product Catalog API is running!');
 });
 
+function requireApiKey(req, res, next) {
+	const apiKey = req.get('x-api-key');
+
+	if (!process.env.API_KEY) {
+		return res.status(500).json({
+			error: 'API key is not configured',
+		});
+	}
+
+	if (apiKey !== process.env.API_KEY) {
+		return res.status(401).json({
+			error: 'Unauthorized: valid API key required',
+		});
+	}
+
+	next();
+}
+
 async function startServer() {
 	try {
 		await client.connect();
 
 		db = client.db(process.env.DB_NAME);
 
-		app.post('/api/products', async (req, res) => {
+		app.post('/api/products', requireApiKey, async (req, res) => {
 			try {
 				const { name, description, price, category, stock } = req.body;
 
@@ -231,7 +249,7 @@ async function startServer() {
 			}
 		});
 
-		app.patch('/api/products/:id', async (req, res) => {
+		app.patch('/api/products/:id', requireApiKey, async (req, res) => {
 			try {
 				const { id } = req.params;
 
@@ -337,7 +355,7 @@ async function startServer() {
 			}
 		});
 
-		app.delete('/api/products/:id', async (req, res) => {
+		app.delete('/api/products/:id', requireApiKey, async (req, res) => {
 			try {
 				const { id } = req.params;
 
